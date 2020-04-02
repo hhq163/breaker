@@ -1,4 +1,4 @@
-package goBreaker
+package breaker
 
 import (
 	"log"
@@ -11,22 +11,27 @@ const (
 	DEFAULT_BREAKER_MINQPS = 200
 )
 
-type CircuitBreaker struct {
+type Breakers struct {
 	Breakers map[int32]*Breaker
 	Mutex    sync.RWMutex
 }
 
-var BreakerWhitelist = map[int32]bool{}
+var Whitelist = map[int32]bool{}
 
-func InitCircuitBreakers(cmds []int32, options Options) (cb CircuitBreaker) {
+func InitBreakers(cmds []int32, options Options) (cb Breakers) {
 	cb.Breakers = map[int32]*Breaker{}
 	for _, cmd := range cmds {
 		cb.Breakers[cmd] = cb.GenBreaker(cmd, options)
 	}
 	return cb
 }
+func InitWhitelist(cmds []int32) {
+	for _, cmd := range cmds {
+		Whitelist[cmd] = true
+	}
+}
 
-func (b *CircuitBreaker) GetBreaker(cmd int32) *Breaker {
+func (b *Breakers) GetBreaker(cmd int32) *Breaker {
 	b.Mutex.RLock()
 	defer b.Mutex.RUnlock()
 	cb := b.Breakers[cmd]
@@ -36,7 +41,7 @@ func (b *CircuitBreaker) GetBreaker(cmd int32) *Breaker {
 	return cb
 }
 
-func (b *CircuitBreaker) GetAllBreakers() map[int32]*Breaker {
+func (b *Breakers) GetAllBreakers() map[int32]*Breaker {
 	breakers := map[int32]*Breaker{}
 	b.Mutex.RLock()
 	defer b.Mutex.RUnlock()
@@ -48,7 +53,7 @@ func (b *CircuitBreaker) GetAllBreakers() map[int32]*Breaker {
 
 // when instances >1, you can use AdjustBreakers
 //count means how many instances you have
-func (b *CircuitBreaker) AdjustBreakers(count int, options Options) {
+func (b *Breakers) AdjustBreakers(count int, options Options) {
 	var preCount, breakerWindows int
 	windowTime := options.BucketTime * time.Duration(options.BucketNums)
 	breakerWindows = int(windowTime / 1000000000)
@@ -75,7 +80,7 @@ func (b *CircuitBreaker) AdjustBreakers(count int, options Options) {
 	}
 }
 
-func (b *CircuitBreaker) GenBreaker(cmd int32, options Options) *Breaker {
+func (b *Breakers) GenBreaker(cmd int32, options Options) *Breaker {
 	callback := func(oldState, newState State, m Container) {
 		log.Printf("breaker state change, command %v: %s -> %s, (succ: %d, err: %d, timeout: %d, rate: %.2f)",
 			cmd, oldState.String(), newState.String(),
@@ -88,8 +93,8 @@ func (b *CircuitBreaker) GenBreaker(cmd int32, options Options) *Breaker {
 	return defaultBreaker
 }
 
-func (b *CircuitBreaker) IsTriggerBreaker(cmd int32) bool {
-	if BreakerWhitelist[cmd] {
+func (b *Breakers) IsTriggerBreaker(cmd int32) bool {
+	if _, ok := Whitelist[cmd]; ok {
 		return false
 	}
 	breaker := b.GetBreaker(cmd)

@@ -1,4 +1,4 @@
-package goBreaker
+package breaker
 
 import (
 	"fmt"

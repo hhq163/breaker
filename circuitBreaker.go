@@ -1,4 +1,4 @@
-package goBreaker
+package breaker
 
 import (
 	"sync"
@@ -82,11 +82,11 @@ type Options struct {
 	BucketNums int           // the number of buckets the breaker have
 
 	// parameters for breaker
-	BreakerRate        float64
+	BreakerRate        float64       //错误率阀值
 	BreakerMinQPS      int           // when instance > 1, if qps is over this value, the breaker trip will work
-	BreakerMinSamples  int           // for RateTrip callback
-	CoolingTimeout     time.Duration // fixed when create
-	DetectTimeout      time.Duration // fixed when create
+	BreakerMinSamples  int           // for RateTrip callback,最小采样数
+	CoolingTimeout     time.Duration // 冷却时间，打开后，过冷却时间后变成半打开
+	DetectTimeout      time.Duration // 检测时间，半打开状态以检测时间去发送请求，成功次数到达HalfOpenSuccess后，关闭熔断器
 	HalfOpenSuccess    int
 	ShouldTrip         TripFunc // trip callback, default is RateTrip func
 	StateChangeHandler StateChangeHandler
@@ -271,21 +271,21 @@ func (b *Breaker) Reset() {
 	b.Unlock()
 }
 
-// ThresholdTripFunc
+// ThresholdTripFunc,当失败和超时的总数超过阈值，则熔断
 func ThresholdTripFunc(threshold int64) TripFunc {
 	return func(m Container) bool {
 		return m.Failures()+m.Timeouts() >= threshold
 	}
 }
 
-// ConsecutiveTripFunc
+// ConsecutiveTripFunc,当连续错误总数（conseErr）超过阈值，则熔断
 func ConsecutiveTripFunc(threshold int64) TripFunc {
 	return func(m Container) bool {
 		return m.ConsecutiveErrors() >= threshold
 	}
 }
 
-// RateTripFunc
+// RateTripFunc,当窗口内请求总数大于最小采样数且错误率（失败+超时数量/请求总数）大于一定值时，则熔断
 func RateTripFunc(rate float64, minSamples int64) TripFunc {
 	return func(m Container) bool {
 		samples := m.Samples()
