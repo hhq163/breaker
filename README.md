@@ -13,7 +13,7 @@ go get github.com/hhq163/breaker
 ```go
 
   var cmds = []int32{1, 2, 289, 55}
-	var options = goBreaker.Options{
+	var options = breaker.Options{
 		BucketTime:        150 * time.Millisecond,
 		BucketNums:        200,
 		BreakerRate:       0.6,
@@ -22,7 +22,7 @@ go get github.com/hhq163/breaker
 		DetectTimeout:     150 * time.Millisecond,
 		HalfOpenSuccess:   3,
 	}
-	cb := goBreaker.InitCircuitBreakers(cmds, options)
+	cb := breaker.InitCircuitBreakers(cmds, options)
 	
   ...
   

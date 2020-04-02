@@ -25,6 +25,7 @@ func InitBreakers(cmds []int32, options Options) (cb Breakers) {
 	}
 	return cb
 }
+
 func InitWhitelist(cmds []int32) {
 	for _, cmd := range cmds {
 		Whitelist[cmd] = true
